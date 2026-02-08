@@ -9,30 +9,31 @@ async function connectToDatabase() {
     await client.connect();
     db = client.db(process.env.MONGODB_DB);
   }
-  return { db, client };
+  return { db };
 }
 
 export default async function handler(req, res) {
   const { db } = await connectToDatabase();
 
-  if (req.method === "GET") {
+  if (req.method === "POST") {
     try {
-      const leads = await db.collection("leads").find({}).toArray();
-      res.status(200).json({ leads });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch leads" });
+      const { temperature, humidity } = req.body;
+      const collection = db.collection("sensor_data");
+      const result = await collection.insertOne({ temperature, humidity, timestamp: new Date() });
+      res.status(200).json({ status: "success", saved: result });
+    } catch (err) {
+      res.status(500).json({ status: "error", message: err.message });
     }
-  } else if (req.method === "POST") {
+  } else if (req.method === "GET") {
     try {
-      const { leads } = req.body;
-      if (!leads || !Array.isArray(leads)) {
-        return res.status(400).json({ error: "Invalid payload" });
-      }
-
-      await db.collection("leads").insertMany(leads);
-      res.status(200).json({ message: "Leads saved successfully" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to save leads" });
+      const docs = await db.collection("sensor_data")
+                           .find({})
+                           .sort({ timestamp: -1 })
+                           .limit(10)
+                           .toArray();
+      res.status(200).json(docs);
+    } catch (err) {
+      res.status(500).json({ status: "error", message: err.message });
     }
   } else {
     res.setHeader("Allow", ["GET", "POST"]);

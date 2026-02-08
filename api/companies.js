@@ -1,24 +1,52 @@
-// companies.js
-import { connectToDatabase } from "./mongo.js";
+import { connectToDatabase } from '../../lib/mongodb';
+import { validateCompanyProfile } from '../../lib/validation';
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
+    const { companies } = req.body;
+
+    if (!companies || !Array.isArray(companies)) {
+      return res.status(400).json({ error: 'Invalid input: companies array required' });
     }
 
     const { db } = await connectToDatabase();
-    if (!db) throw new Error("Database connection failed");
 
-    const { companies } = req.body;
-    if (!companies || !Array.isArray(companies) || companies.length === 0) {
-      return res.status(400).json({ error: "No companies provided" });
+    // Validate all companies
+    for (const company of companies) {
+      validateCompanyProfile(company);
     }
 
-    const result = await db.collection("companies").insertMany(companies);
-    res.status(200).json({ inserted: result.insertedCount });
-  } catch (err) {
-    console.error("❌ companies.js error:", err);
-    res.status(500).json({ error: "Internal Server Error", details: err.message });
+    // Upsert companies (update if exists, insert if new)
+    const operations = companies.map(company => ({
+      updateOne: {
+        filter: { canonical_name: company.canonical_name },
+        update: { 
+          $set: { 
+            ...company,
+            updated_at: new Date(),
+            processed_at: new Date()
+          }
+        },
+        upsert: true
+      }
+    }));
+
+    const result = await db.collection('companies').bulkWrite(operations, { ordered: false });
+    
+    res.status(200).json({
+      success: true,
+      message: `Processed ${companies.length} companies`,
+      inserted: result.upsertedCount,
+      modified: result.modifiedCount,
+      matched: result.matchedCount
+    });
+
+  } catch (error) {
+    console.error('Companies API Error:', error);
+    res.status(500).json({ error: error.message });
   }
 }

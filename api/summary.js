@@ -1,24 +1,37 @@
-// summary.js
-import { connectToDatabase } from "./mongo.js";
+import { connectToDatabase } from '../../lib/mongodb';
+import { validateSummary } from '../../lib/validation';
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+    const summary = req.body;
+
+    validateSummary(summary);
 
     const { db } = await connectToDatabase();
-    if (!db) throw new Error("Database connection failed");
 
-    const { summary } = req.body;
-    if (!summary || typeof summary !== "object") {
-      return res.status(400).json({ error: "Invalid summary payload" });
-    }
+    const result = await db.collection('summary').updateOne(
+      { _id: 'latest' },
+      { 
+        $set: { 
+          ...summary,
+          updated_at: new Date()
+        }
+      },
+      { upsert: true }
+    );
 
-    const result = await db.collection("summary").insertOne(summary);
-    res.status(200).json({ insertedId: result.insertedId });
-  } catch (err) {
-    console.error("❌ summary.js error:", err);
-    res.status(500).json({ error: "Internal Server Error", details: err.message });
+    res.status(200).json({
+      success: true,
+      message: 'Summary updated successfully',
+      upserted: result.upsertedId ? true : false
+    });
+
+  } catch (error) {
+    console.error('Summary API Error:', error);
+    res.status(500).json({ error: error.message });
   }
 }

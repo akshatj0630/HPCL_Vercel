@@ -1,6 +1,12 @@
 {
-  "name": "hpcl-vercel",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {}
+  "name": "hpcl-lead-intelligence-backend",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "mongodb": "^6.8.0"
+  }
 }

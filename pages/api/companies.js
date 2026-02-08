@@ -1,20 +1,28 @@
-let companiesData = []; // In-memory storage
+import { connectToDatabase } from "./_mongo.js";
 
 export default async function handler(req, res) {
-  if (req.method === "POST") {
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  try {
     const { companies } = req.body;
     if (!companies || !Array.isArray(companies)) {
-      return res.status(400).json({ error: "Invalid payload" });
+      return res.status(400).json({ error: "No companies provided" });
     }
 
-    companiesData.push(...companies);
-    return res.status(200).json({ status: "success", inserted: companies.length });
-  }
+    const { db } = await connectToDatabase();
+    const collection = db.collection("companies");
 
-  if (req.method === "GET") {
-    return res.status(200).json({ companies: companiesData });
-  }
+    const ops = companies.map(company => ({
+      updateOne: {
+        filter: { canonical_name: company.canonical_name },
+        update: { $set: company },
+        upsert: true
+      }
+    }));
 
-  res.setHeader("Allow", ["GET", "POST"]);
-  res.status(405).end(`Method ${req.method} Not Allowed`);
+    const result = await collection.bulkWrite(ops);
+    res.status(200).json({ status: "success", modifiedCount: result.modifiedCount, upsertedCount: result.upsertedCount });
+  } catch (e) {
+    res.status(500).json({ status: "error", message: e.message });
+  }
 }

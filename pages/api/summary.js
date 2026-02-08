@@ -1,15 +1,21 @@
-let summaryData = {}; // In-memory storage
+import { connectToDatabase } from "./_mongo.js";
 
 export default async function handler(req, res) {
-  if (req.method === "POST") {
-    summaryData = req.body;
-    return res.status(200).json({ status: "success" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  if (req.method === "GET") {
-    return res.status(200).json(summaryData);
-  }
+  try {
+    const summary = req.body;
+    const { db } = await connectToDatabase();
+    const collection = db.collection("summary");
 
-  res.setHeader("Allow", ["GET", "POST"]);
-  res.status(405).end(`Method ${req.method} Not Allowed`);
+    await collection.updateOne(
+      { _id: "latest_summary" },
+      { $set: summary },
+      { upsert: true }
+    );
+
+    res.status(200).json({ status: "success", message: "Summary saved" });
+  } catch (e) {
+    res.status(500).json({ status: "error", message: e.message });
+  }
 }

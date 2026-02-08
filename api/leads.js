@@ -1,30 +1,33 @@
-import { connectToDatabase } from "../utils/mongo";
+// leads.js
+import { connectToDatabase } from "./mongo.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
   try {
-    const { leads } = req.body;
-    if (!leads || !Array.isArray(leads)) {
-      return res.status(400).json({ error: "Invalid payload" });
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
     }
 
     const { db } = await connectToDatabase();
-    const bulkOps = leads.map(l => ({
-      updateOne: {
-        filter: { lead_id: l.lead_id },
-        update: { $set: l },
-        upsert: true
-      }
-    }));
+    if (!db) throw new Error("Database connection failed");
 
-    const result = await db.collection("leads").bulkWrite(bulkOps);
+    const { leads } = req.body;
+    if (!leads || !Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ error: "No leads provided" });
+    }
 
-    res.status(200).json({ status: "success", modifiedCount: result.modifiedCount, upsertedCount: result.upsertedCount });
+    // Batch insert to prevent memory/time limits
+    const batchSize = 50;
+    let totalInserted = 0;
+
+    for (let i = 0; i < leads.length; i += batchSize) {
+      const batch = leads.slice(i, i + batchSize);
+      const result = await db.collection("leads").insertMany(batch);
+      totalInserted += result.insertedCount;
+    }
+
+    res.status(200).json({ inserted: totalInserted });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("❌ leads.js error:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
   }
 }

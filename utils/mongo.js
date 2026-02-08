@@ -1,25 +1,29 @@
+// mongo.js - Safe MongoDB connection for Vercel
 import { MongoClient } from "mongodb";
 
 let client;
 let db;
 
-const MONGO_URI = process.env.MONGO_URI; // Set in Vercel dashboard
-const DB_NAME = process.env.DB_NAME || "hpcl";
-
-if (!MONGO_URI) {
-  throw new Error("Please define the MONGO_URI environment variable inside Vercel");
-}
-
 export async function connectToDatabase() {
   if (db) return { client, db };
 
-  client = new MongoClient(MONGO_URI, { 
-    useNewUrlParser: true, 
-    useUnifiedTopology: true 
-  });
+  try {
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI not defined in environment variables");
+    }
 
-  await client.connect();
-  db = client.db(DB_NAME);
-  console.log("✅ MongoDB connected");
-  return { client, db };
+    client = new MongoClient(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    await client.connect();
+    db = client.db(process.env.DB_NAME || "hpcl_leads");
+
+    console.log("✅ MongoDB connected");
+    return { client, db };
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    return { client: null, db: null };
+  }
 }

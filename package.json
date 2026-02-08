@@ -1,11 +1,7 @@
 {
-  "name": "hpcl",
+  "name": "hpcl-lead-api",
   "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "start": "vercel dev"
-  },
   "dependencies": {
-    "mongodb": "^5.9.0"
+    "mongodb": "^6.6.2"
   }
 }

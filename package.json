@@ -1,7 +1,13 @@
 {
   "name": "hpcl-lead-api",
-  "version": "1.0.0",
   "dependencies": {
     "mongodb": "^6.6.2"
+  },
+  "vercel": {
+    "functions": {
+      "api/**/*.js": {
+        "runtime": "nodejs18.x"
+      }
+    }
   }
 }
